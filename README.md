@@ -11,7 +11,7 @@ Two perspectives or identities...
 - After being exposed to both, they start interfering with each other (gradually obscuring more of the play area)
 - Experiment with making controls wonky (controlling both sides at the same time?)
 
-- [ ] Figma prototype of project
-- [ ] Day mode (sorting objects using JQuery UI)
-- [ ] Night mode (basic space shooter with high score)
-- [ ] Interference effects (game windows starting to overlap and animate OR controlling both at same time)
+- [x] [Figma prototype of project](https://www.figma.com/file/7DfntNoTMHhDOhbn1cFpGK/Daily-Grind?node-id=0%3A1)
+- [ ] Day mode
+- [ ] Night mode
+- [?] Interference effects (game windows starting to overlap and animate OR controlling both at same time)
