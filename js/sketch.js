@@ -149,7 +149,7 @@ function setup() {
         push();
         strokeWeight(4);
         stroke('#00FF38');
-        line(50, shipDescent, width, shipDescent);
+        line(70, shipDescent, width, shipDescent);
         pop();
       }
       //Score counter
