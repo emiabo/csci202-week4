@@ -7,6 +7,10 @@ let star;
 let dia;
 let ship;
 let guide;
+let paidSound;
+let deductionSound;
+let fireSound;
+let boomSound;
 let pay = 0.0;
 let score = 0;
 let shipDescent = 300;
@@ -28,14 +32,18 @@ let draggingTri = false;
 let night = false;
 function preload() {
     teko = loadFont('css/Teko-Medium.ttf');
-    boxTri = loadImage('img/box-tri.png');
-    boxStar = loadImage('img/box-star.png');
-    boxDia = loadImage('img/box-dia.png');
-    tri = loadImage('img/tri.png');
-    star = loadImage('img/star.png');
-    dia = loadImage('img/dia.png');
-    ship = loadImage('img/polyspaceship.png');
-    guide = loadImage('img/controlguide.png');
+    boxTri = loadImage('assets/box-tri.png');
+    boxStar = loadImage('assets/box-star.png');
+    boxDia = loadImage('assets/box-dia.png');
+    tri = loadImage('assets/tri.png');
+    star = loadImage('assets/star.png');
+    dia = loadImage('assets/dia.png');
+    ship = loadImage('assets/polyspaceship.png');
+    guide = loadImage('assets/controlguide.png');
+    paidSound = loadSound('assets/paid.wav');
+    deductionSound = loadSound('assets/deduction.wav');
+    fireSound = loadSound('assets/fire.wav');
+    boomSound = loadSound('assets/boom.wav');
 }
 
 function setup() {
@@ -176,15 +184,19 @@ function setup() {
   function mouseReleased() {
     if (!night) {
       if (draggingStar && dist(400, 500, mouseX, mouseY) < 100) {
+            paidSound.play();
             pay = pay + 0.5;
             draggingStar = false;
           } else if (draggingDia && dist(600, 500, mouseX, mouseY) < 100) {
+            paidSound.play();
             pay = pay + 0.5;
             draggingDia = false;
           } else if (draggingTri && dist(200, 500, mouseX, mouseY) < 100) {
+            paidSound.play();
             pay = pay + 0.5;
             draggingTri = false;
           } else if (draggingStar || draggingDia || draggingTri) {
+            deductionSound.play();
             pay = pay - 1.0;
             draggingStar = draggingDia = draggingTri = false;
           } else if (dist(745, 40, mouseX, mouseY) < 30){
@@ -202,6 +214,7 @@ function setup() {
   function keyReleased() {
     if (night) {
       if (willFire) {
+        fireSound.play();
         fire();
         firedFrame = frameCount;
         willFire = false;
@@ -215,21 +228,27 @@ function setup() {
     //widths to check: 600, 750
     //heights to check: 225, 375, 525, 150, 300, 450 (within 38)
     if (dist(600, 225, 600, shipDescent) < 38 && enemyA) {
+      boomSound.play();
       enemyA = false;
       score += 500;
     } else if (dist(600, 375, 600, shipDescent) < 38 && enemyB) {
+      boomSound.play();
       enemyB = false;
       score += 500;
     } else if (dist(600, 525, 600, shipDescent) < 38 && enemyC) {
+      boomSound.play();
       enemyC = false;
       score += 500;
     } else if (dist(750, 150, 750, shipDescent) < 38 && enemyD) {
+      boomSound.play();
       enemyD = false;
       score += 500;
     } else if (dist(750, 300, 750, shipDescent) < 38 && enemyE) {
+      boomSound.play();
       enemyE = false;
       score += 500;
     } else if (dist(750, 450, 750, shipDescent) < 38 && enemyF) {
+      boomSound.play();
       enemyF = false;
       score += 500;
     } else {

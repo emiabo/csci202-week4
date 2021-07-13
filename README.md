@@ -14,7 +14,8 @@ Wow this got hairy fast.
 - Experiment with making controls wonky (controlling both sides at the same time?)
 
 - [x] [Figma prototype of project](https://www.figma.com/file/7DfntNoTMHhDOhbn1cFpGK/Daily-Grind?node-id=0%3A1)
-- [x] Day mode
-- [x] Night mode
+- [x] Day minigame
+- [x] Night minigame
+- [x] Sound effects (thanks [Beep Yeah!](https://beepyeah.itch.io/8-bit-sfx-pack))
 - [ ] Auto-switch timer
 - [ ] Interference effects (game windows starting to overlap and animate OR controlling both at same time)
