@@ -6,11 +6,14 @@ let tri;
 let star;
 let dia;
 let ship;
+let guide;
 let pay = 0.0;
 let score = 0;
-let shipHeight = 300;
-let bulletX = 75;
-let bulletY = 300;
+let shipDescent = 300;
+let hasMoved = false;
+let hasFired = false;
+let willFire = false;
+let firedFrame = 0;
 let enemyA = true;
 let enemyB = true;
 let enemyC = true;
@@ -22,7 +25,7 @@ let body;
 let draggingStar = false;
 let draggingDia = false;
 let draggingTri = false;
-let night = true;
+let night = false;
 function preload() {
     teko = loadFont('css/Teko-Medium.ttf');
     boxTri = loadImage('img/box-tri.png');
@@ -32,6 +35,7 @@ function preload() {
     star = loadImage('img/star.png');
     dia = loadImage('img/dia.png');
     ship = loadImage('img/polyspaceship.png');
+    guide = loadImage('img/controlguide.png');
 }
 
 function setup() {
@@ -91,19 +95,16 @@ function setup() {
     } else {
       //Night mode (first set the styling)
       body.class("night");
-      //Score counter
-      fill(255);
-      textFont('Lucida Console, monospace');
-      textAlign(LEFT);
-      textSize(36);
-      text('SCORE '+ score, 25, 50);
+      if (!hasMoved || !hasFired) {
+        image(guide, 400, 300);
+      }
       // Advance arrows
       textFont('Nunito');
       textSize(48);
       textAlign(RIGHT);
       text('>>', 775, 50);
       //draw spaceship and boxes (static)
-      image(ship, 50, shipHeight);
+      image(ship, 50, shipDescent);
       fill('#CC0000');
       if (enemyA) {
         rect(600, 225, 50, 50);
@@ -128,6 +129,35 @@ function setup() {
       }
       //check for keyboard input and increment or decrement shipHeight
       
+      if (keyIsPressed && (keyCode === UP_ARROW || keyCode === 87)) {
+        hasMoved = true;
+        if (0 <= shipDescent) {
+          console.log(shipDescent);
+          shipDescent-= 2;
+        }
+      } else if (keyIsPressed && (keyCode === DOWN_ARROW || keyCode === 83)) {
+        hasMoved = true;
+        if (shipDescent <= height) {
+          console.log(shipDescent);
+          shipDescent += 2;
+        }
+      } else if (keyIsPressed) {
+        hasFired = true;
+        willFire = true;
+      }
+      if (firedFrame > 0 && frameCount < (firedFrame+30)) {
+        push();
+        strokeWeight(4);
+        stroke('#00FF38');
+        line(50, shipDescent, width, shipDescent);
+        pop();
+      }
+      //Score counter
+      fill(255);
+      textFont('Lucida Console, monospace');
+      textAlign(LEFT);
+      textSize(36);
+      text('SCORE '+ score, 25, 50);
     }
     
   }
@@ -169,9 +199,42 @@ function setup() {
     }
   }
 
-  function shoot() {
-    //Has to fire one bullet (or multiple) and move horizontally along screen until it hits an enemy, or the right edge. 
+  function keyReleased() {
+    if (night) {
+      if (willFire) {
+        fire();
+        firedFrame = frameCount;
+        willFire = false;
+      }
+    }
+  }
+
+  function fire() {
+    //Draw a line emitting from ship (#00FF38) at shipHeight to the edge of the screen for 0.5s (30 frames).
     //If it hits, set that enemy to false and add 500 points. If not, subtract 500 points.
-    fill('#00FF38');
-    circle(bulletX, bulletY, 10);
+    //widths to check: 600, 750
+    //heights to check: 225, 375, 525, 150, 300, 450 (within 38)
+    if (dist(600, 225, 600, shipDescent) < 38 && enemyA) {
+      enemyA = false;
+      score += 500;
+    } else if (dist(600, 375, 600, shipDescent) < 38 && enemyB) {
+      enemyB = false;
+      score += 500;
+    } else if (dist(600, 525, 600, shipDescent) < 38 && enemyC) {
+      enemyC = false;
+      score += 500;
+    } else if (dist(750, 150, 750, shipDescent) < 38 && enemyD) {
+      enemyD = false;
+      score += 500;
+    } else if (dist(750, 300, 750, shipDescent) < 38 && enemyE) {
+      enemyE = false;
+      score += 500;
+    } else if (dist(750, 450, 750, shipDescent) < 38 && enemyF) {
+      enemyF = false;
+      score += 500;
+    } else {
+      if (score > 0) {
+        score -= 500;
+      }
+    }
   }

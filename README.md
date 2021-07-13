@@ -15,6 +15,6 @@ Wow this got hairy fast.
 
 - [x] [Figma prototype of project](https://www.figma.com/file/7DfntNoTMHhDOhbn1cFpGK/Daily-Grind?node-id=0%3A1)
 - [x] Day mode
-- [ ] Night mode
+- [x] Night mode
 - [ ] Auto-switch timer
 - [ ] Interference effects (game windows starting to overlap and animate OR controlling both at same time)
