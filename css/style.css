@@ -23,3 +23,13 @@ body {
 .night canvas {
     border: 1px solid #39EDFF;
 }
+.github-corner {
+    fill:#000; 
+    color:#fff;
+    transition: 1s;
+}
+
+body.night a.github-corner {
+    fill:#fff; 
+    color:#000;
+}
