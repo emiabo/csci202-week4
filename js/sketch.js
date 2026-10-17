@@ -52,6 +52,19 @@ let pointerStartFrame = 0;
 //shared effects
 let particles = [];
 let popups = [];
+let cnv;
+
+//The daily cycle: each shift lasts PHASE_LENGTH ms of play, and >> fast-forwards.
+//From day 2 on, each world starts bleeding into the other.
+const PHASE_LENGTH = 30000;
+let dayCount = 1;
+let phaseElapsed = 0;
+let clockStarted = false;
+let shiftStartPay = 0;
+let shiftStartScore = 0;
+let banner = null;
+let glitchFrames = 0;
+let best = {shiftPay: 0, nightScore: 0};
 
 function preload() {
     teko = loadFont('css/Teko-Medium.ttf');
@@ -70,7 +83,7 @@ function preload() {
 }
 
 function setup() {
-    let cnv = createCanvas(800, 600);
+    cnv = createCanvas(800, 600);
     cnv.parent('gameWindow');
     imageMode(CENTER);
     rectMode(CENTER);
@@ -84,6 +97,8 @@ function setup() {
       s.scale = 1;
     });
     newWave();
+    best = loadBest();
+    applyBleedBackground();
     //keep arrow keys and space from scrolling the page while playing at night
     //(p5 skips keyPressed on key repeat, so this has to be a raw listener)
     window.addEventListener('keydown', function(e) {
@@ -95,12 +110,26 @@ function setup() {
 
 function draw() {
   clear();
+  //the clock only runs once you've started playing (and deltaTime is capped
+  //so time spent in a background tab doesn't count)
+  if (clockStarted) {
+    phaseElapsed += min(deltaTime, 100);
+    if (phaseElapsed >= PHASE_LENGTH) {
+      advancePhase();
+    }
+  }
+  bobPhase += 0.02 + wave * 0.004;
   if (!night) {
+    drawGhostNight();
     drawDay();
   } else {
+    drawGhostDay();
     drawNight();
   }
   updateEffects();
+  drawClock();
+  drawGlitch();
+  drawBanner();
 }
 
 /* ---------- Day mode: SortCo ---------- */
@@ -135,6 +164,11 @@ function drawDay() {
   noStroke();
   fill(200);
   text('SortCo Ltd.', 400, 350);
+  if (!clockStarted) {
+    fill(150);
+    textSize(28);
+    text('Drag each shape into its box to clock in', 400, 395);
+  }
 
   //Pay counter
   fill(0);
@@ -168,6 +202,11 @@ function drawDay() {
     if (i === dragging) {
       slot.x = mouseX + grabOffsetX;
       slot.y = mouseY + grabOffsetY;
+      //late in the week, glitches make your hands shake
+      if (wonky()) {
+        slot.x += random(-1, 1) * bleed() * 60;
+        slot.y += random(-1, 1) * bleed() * 60;
+      }
     } else {
       slot.x = lerp(slot.x, slotX(i), 0.25);
       slot.y = lerp(slot.y, 200, 0.25);
@@ -256,6 +295,10 @@ function drawNight() {
   //(keyIsDown checks each key, so holding fire doesn't cancel movement)
   let up = keyIsDown(UP_ARROW) || keyIsDown(87);
   let down = keyIsDown(DOWN_ARROW) || keyIsDown(83);
+  //late in the week, glitches flip the controls
+  if (wonky()) {
+    [up, down] = [down, up];
+  }
   if (up && !down) {
     hasMoved = true;
     shipDescent -= 2;
@@ -276,8 +319,7 @@ function drawNight() {
   //keep the ship (44px tall) on screen
   shipDescent = constrain(shipDescent, 22, height - 22);
 
-  //formation, bobbing faster in later waves
-  bobPhase += 0.02 + wave * 0.004;
+  //formation (bobbing faster in later waves)
   formX = lerp(formX, formTargetX, 0.05);
   let arrived = abs(formX - formTargetX) < 5;
   noStroke();
@@ -395,6 +437,224 @@ function shipHit() {
   }
 }
 
+/* ---------- The daily cycle ---------- */
+
+//how far each world has bled into the other: none on day 1, growing each day after
+function bleed() {
+  return constrain((dayCount - 1) * 0.12, 0, 0.48);
+}
+
+//glitches only scramble the controls from day 3
+function wonky() {
+  return glitchFrames > 0 && dayCount >= 3;
+}
+
+function advancePhase() {
+  if (!night) {
+    let earned = pay - shiftStartPay;
+    let record = earned > best.shiftPay;
+    best.shiftPay = max(best.shiftPay, earned);
+    showBanner('CLOCKED OUT', formatter.format(earned) + ' earned today',
+               record && earned > 0 ? 'NEW BEST SHIFT!' : 'BEST SHIFT ' + formatter.format(best.shiftPay));
+    shiftStartScore = score;
+    setNight(true);
+  } else {
+    let scored = score - shiftStartScore;
+    let record = scored > best.nightScore;
+    best.nightScore = max(best.nightScore, scored);
+    dayCount++;
+    showBanner('DAY ' + dayCount, scored + ' points last night',
+               record && scored > 0 ? 'NEW BEST NIGHT!' : 'BEST NIGHT ' + best.nightScore);
+    shiftStartPay = pay;
+    setNight(false);
+  }
+  saveBest();
+  phaseElapsed = 0;
+  applyBleedBackground();
+  if (bleed() > 0) {
+    glitchFrames = 12;
+  }
+}
+
+function showBanner(title, sub, note) {
+  banner = {title: title, sub: sub, note: note, life: 150};
+}
+
+//time of day shown on the clock: day shift 9 AM to 5 PM, night 5 PM to 1 AM
+function clockText() {
+  let minutes = (night ? 17 : 9) * 60 + floor(phaseElapsed / PHASE_LENGTH * 8 * 4) * 15;
+  let h = floor(minutes / 60) % 24;
+  let m = minutes % 60;
+  return ((h + 11) % 12 + 1) + ':' + nf(m, 2) + (h < 12 ? ' AM' : ' PM');
+}
+
+function drawClock() {
+  push();
+  noStroke();
+  textAlign(CENTER);
+  let progress = phaseElapsed / PHASE_LENGTH;
+  if (!night) {
+    fill(0, 20);
+    rect(400, 2, 800, 4);
+    fill('#E8A200');
+    rect(progress * 400, 2, progress * 800, 4);
+    fill(90);
+    //the CSS-loaded Teko, since p5's rendering of the bundled font drops half the colon
+    textFont('Teko, sans-serif');
+    textSize(30);
+    text('DAY ' + dayCount + '  ' + clockText(), 400, 46);
+  } else {
+    fill(57, 237, 255, 40);
+    rect(400, 2, 800, 4);
+    fill(57, 237, 255);
+    rect(progress * 400, 2, progress * 800, 4);
+    textFont('Lucida Console, monospace');
+    textSize(18);
+    text('NIGHT ' + dayCount + '  ' + clockText(), 400, 42);
+  }
+  pop();
+}
+
+//faint traces of the night shooter creeping into the workday
+function drawGhostNight() {
+  let a = bleed() * 180;
+  if (a <= 0) {
+    return;
+  }
+  push();
+  noStroke();
+  fill(204, 0, 0, a);
+  for (let e of enemies) {
+    if (e.alive) {
+      let p = enemyPos(e);
+      rect(p.x, p.y, 50, 50);
+    }
+  }
+  tint(255, a);
+  image(ship, 50, shipDescent);
+  pop();
+}
+
+//and the warehouse lingering behind the night
+function drawGhostDay() {
+  let a = bleed() * 180;
+  if (a <= 0) {
+    return;
+  }
+  push();
+  noStroke();
+  fill(200, a);
+  textFont(teko);
+  textSize(100);
+  textAlign(CENTER);
+  text('SortCo Ltd.', 400, 350);
+  tint(255, a);
+  for (let i = 0; i < SHAPES.length; i++) {
+    image(boxImages[SHAPES[i]], slotX(i), 500);
+    image(shapeImages[slots[i].shape], slotX(i), 200);
+  }
+  pop();
+}
+
+function applyBleedBackground() {
+  let c = night ? lerpColor(color(0), color('#3A2E1F'), bleed())
+                : lerpColor(color(255), color('#B9C6D6'), bleed());
+  body.style('background-color', c.toString('#rrggbb'));
+}
+
+//screen tearing and a shaky window, more often as the week wears on
+function drawGlitch() {
+  if (glitchFrames === 0 && random() < bleed() * 0.006) {
+    glitchFrames = floor(random(15, 40));
+  }
+  if (glitchFrames === 0) {
+    return;
+  }
+  glitchFrames--;
+  if (glitchFrames === 0) {
+    cnv.style('transform', 'none');
+    return;
+  }
+  //shift a few horizontal slices of the canvas sideways
+  for (let i = 0; i < 3; i++) {
+    let h = floor(random(10, 60));
+    let y = floor(random(height - h));
+    let slice = get(0, y, width, h);
+    erase();
+    rect(width / 2, y + h / 2, width, h);
+    noErase();
+    image(slice, width / 2 + random(-40, 40), y + h / 2, width, h);
+  }
+  push();
+  noStroke();
+  fill(night ? color(255, 0, 200, 50) : color(0, 200, 255, 50));
+  rect(random(width), random(height), random(100, 400), random(4, 20));
+  pop();
+  cnv.style('transform', 'translate(' + floor(random(-6, 7)) + 'px, ' + floor(random(-4, 5)) + 'px) skewX(' + random(-2, 2).toFixed(1) + 'deg)');
+}
+
+function drawBanner() {
+  if (!banner) {
+    return;
+  }
+  push();
+  let a = min(255, banner.life * 8);
+  if (!night) {
+    fill(255, a);
+    stroke(0, a);
+    strokeWeight(2);
+    rect(400, 300, 420, 170, 8);
+    noStroke();
+    fill(0, a);
+    textFont(teko);
+    textAlign(CENTER);
+    textSize(64);
+    text(banner.title, 400, 290);
+    textSize(30);
+    text(banner.sub, 400, 330);
+    fill(232, 162, 0, a);
+    textSize(24);
+    text(banner.note, 400, 362);
+  } else {
+    fill(0, a);
+    stroke(57, 237, 255, a);
+    strokeWeight(2);
+    rect(400, 300, 420, 170);
+    noStroke();
+    fill(255, a);
+    textFont('Lucida Console, monospace');
+    textAlign(CENTER);
+    textSize(40);
+    text(banner.title, 400, 285);
+    textSize(20);
+    text(banner.sub, 400, 325);
+    fill(57, 237, 255, a);
+    textSize(16);
+    text(banner.note, 400, 358);
+  }
+  pop();
+  if (--banner.life <= 0) {
+    banner = null;
+  }
+}
+
+//records survive reloads; storage can be unavailable (private windows, blocked cookies)
+function loadBest() {
+  try {
+    let saved = JSON.parse(localStorage.getItem('dailyGrindBest'));
+    if (saved) {
+      return {shiftPay: saved.shiftPay || 0, nightScore: saved.nightScore || 0};
+    }
+  } catch (e) {}
+  return {shiftPay: 0, nightScore: 0};
+}
+
+function saveBest() {
+  try {
+    localStorage.setItem('dailyGrindBest', JSON.stringify(best));
+  } catch (e) {}
+}
+
 /* ---------- Effects ---------- */
 
 function explode(x, y, c) {
@@ -509,6 +769,9 @@ function touchEnded() {
 
 function pointerPressed() {
   startAudio();
+  if (overCanvas()) {
+    clockStarted = true;
+  }
   if (!night) {
     let i = overShape();
     if (i >= 0) {
@@ -530,14 +793,14 @@ function pointerReleased() {
     if (dragging >= 0) {
       dropShape();
     } else if (overAdvance()) {
-      setNight(true);
+      advancePhase();
     }
   } else {
     //Night mode
     if (pointerDown && !pointerSteering) {
       fire();
     } else if (!pointerDown && overAdvance()) {
-      setNight(false);
+      advancePhase();
     }
     pointerDown = pointerSteering = false;
   }
@@ -545,6 +808,7 @@ function pointerReleased() {
 
 function keyPressed() {
   startAudio();
+  clockStarted = true;
   //any key other than movement (or a modifier) fires. Handling this here instead
   //of polling keyIsPressed in draw() means quick taps between frames still count.
   let movement = [UP_ARROW, DOWN_ARROW, 87, 83];

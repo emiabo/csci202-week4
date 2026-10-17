@@ -8,6 +8,12 @@ Wow this got hairy fast.
 - Day mode: light theme, work-themed minigame (sorting objects at a packing facility)
 - Night mode: dark theme, neon-bordered screen, Space Invaders-like
 
+## How to play
+- **Day (SortCo):** drag each shape into the box with the matching picture. +$0.50 for a correct sort, -$1.00 for the wrong box, and a $5 bonus for every 10 in a row.
+- **Night:** move with ↑/↓ (or W/S) and press any other key to fire. With a mouse or touch screen, drag to steer and tap to fire. Hits are +500 and misses are -500. Enemies start shooting back once you've got the hang of it.
+- Each shift lasts 30 seconds once you start playing. The **>>** button fast-forwards to the next one.
+- From day 2 on, each world starts to bleed into the other. By day 3, glitches start to mess with your controls.
+
 ## Future possibilities
 - Switching between the two happens automatically every 30 sec (phases can be skipped with FFWD button)
 - After being exposed to both, they start interfering with each other (gradually obscuring more of the play area)
@@ -17,7 +23,7 @@ Wow this got hairy fast.
 - [x] Day minigame
 - [x] Night minigame
 - [x] Sound effects (thanks [Beep Yeah!](https://beepyeah.itch.io/8-bit-sfx-pack))
-- [ ] Auto-switch timer
-- [ ] Interference effects (game windows starting to overlap and animate OR controlling both at same time)
+- [x] Auto-switch timer
+- [x] Interference effects (game windows starting to overlap and animate OR controlling both at same time)
 
 #### Thanks to @tholman for the [GitHub Corners](https://github.com/tholman/github-corners) link!
