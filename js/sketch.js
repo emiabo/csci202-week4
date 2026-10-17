@@ -16,7 +16,6 @@ let score = 0;
 let shipDescent = 300;
 let hasMoved = false;
 let hasFired = false;
-let willFire = false;
 let firedFrame = 0;
 let enemyA = true;
 let enemyB = true;
@@ -29,6 +28,8 @@ let body;
 let draggingStar = false;
 let draggingDia = false;
 let draggingTri = false;
+let grabOffsetX = 0;
+let grabOffsetY = 0;
 let night = false;
 function preload() {
     teko = loadFont('css/Teko-Medium.ttf');
@@ -47,11 +48,18 @@ function preload() {
 }
 
 function setup() {
-    let window = createCanvas(800, 600);
-    window.parent('gameWindow');
+    let cnv = createCanvas(800, 600);
+    cnv.parent('gameWindow');
     imageMode(CENTER);
     rectMode(CENTER);
     body = select('body');
+    //keep arrow keys and space from scrolling the page while playing at night
+    //(p5 skips keyPressed on key repeat, so this has to be a raw listener)
+    window.addEventListener('keydown', function(e) {
+      if (night && [32, 37, 38, 39, 40].includes(e.keyCode)) {
+        e.preventDefault();
+      }
+    });
   }
 
   function draw() {
@@ -84,21 +92,32 @@ function setup() {
 
       //draw shapes
       if (draggingStar) {
-        image(star, mouseX, mouseY);
+        image(star, mouseX + grabOffsetX, mouseY + grabOffsetY);
         image(dia, 400, 200);
         image(tri, 600, 200);
       } else if (draggingDia) {
         image(star, 200, 200);
-        image(dia, mouseX, mouseY);
+        image(dia, mouseX + grabOffsetX, mouseY + grabOffsetY);
         image(tri, 600, 200);
       } else if (draggingTri) {
         image(star, 200, 200);
         image(dia, 400, 200);
-        image(tri, mouseX, mouseY);
+        image(tri, mouseX + grabOffsetX, mouseY + grabOffsetY);
       } else {
         image(star, 200, 200);
         image(dia, 400, 200);
         image(tri, 600, 200);
+      }
+
+      //cursor feedback
+      if (draggingStar || draggingDia || draggingTri) {
+        cursor('grabbing');
+      } else if (overShape() > 0) {
+        cursor('grab');
+      } else if (overAdvance()) {
+        cursor(HAND);
+      } else {
+        cursor(ARROW);
       }
     } else {
       //Night mode (first set the styling)
@@ -106,8 +125,10 @@ function setup() {
       if (!hasMoved || !hasFired) {
         image(guide, 400, 300);
       }
+      cursor(overAdvance() ? HAND : ARROW);
       // Advance arrows
-      textFont('Nunito');
+      fill(255);
+      textFont('Nunito, sans-serif');
       textSize(48);
       textAlign(RIGHT);
       text('>>', 775, 50);
@@ -135,24 +156,19 @@ function setup() {
       if (!enemyA && !enemyB && !enemyC && !enemyD && !enemyE && !enemyF) {
         enemyA = enemyB = enemyC = enemyD = enemyE = enemyF = true;
       }
-      //check for keyboard input and increment or decrement shipHeight
-      
-      if (keyIsPressed && (keyCode === UP_ARROW || keyCode === 87)) {
+      //check for held movement keys and increment or decrement shipHeight
+      //(keyIsDown checks each key, so holding fire doesn't cancel movement)
+      let up = keyIsDown(UP_ARROW) || keyIsDown(87);
+      let down = keyIsDown(DOWN_ARROW) || keyIsDown(83);
+      if (up && !down) {
         hasMoved = true;
-        if (0 <= shipDescent) {
-          console.log(shipDescent);
-          shipDescent-= 2;
-        }
-      } else if (keyIsPressed && (keyCode === DOWN_ARROW || keyCode === 83)) {
+        shipDescent -= 2;
+      } else if (down && !up) {
         hasMoved = true;
-        if (shipDescent <= height) {
-          console.log(shipDescent);
-          shipDescent += 2;
-        }
-      } else if (keyIsPressed) {
-        hasFired = true;
-        willFire = true;
+        shipDescent += 2;
       }
+      //keep the ship (44px tall) on screen
+      shipDescent = constrain(shipDescent, 22, height - 22);
       if (firedFrame > 0 && frameCount < (firedFrame+30)) {
         push();
         strokeWeight(4);
@@ -169,19 +185,80 @@ function setup() {
     }
     
   }
-  function mousePressed(){
+  //mouse and touch share the same handlers; right/middle clicks are ignored
+  function mousePressed() {
+    if (mouseButton === LEFT) {
+      pointerPressed();
+    }
+  }
+
+  function mouseReleased() {
+    if (mouseButton === LEFT) {
+      pointerReleased();
+    }
+  }
+
+  //p5 only maps touchstart to mousePressed on Safari, so handle touch directly.
+  //Returning false on the canvas stops the browser from also sending mouse events.
+  function touchStarted() {
+    pointerPressed();
+    if (overCanvas()) {
+      return false;
+    }
+  }
+
+  function touchEnded() {
+    pointerReleased();
+    if (overCanvas()) {
+      return false;
+    }
+  }
+
+  function pointerPressed() {
+    startAudio();
     if (!night) {
-      if (dist(200, 200, mouseX, mouseY) < 50) {
+      let shape = overShape();
+      if (shape > 0) {
+        //remember where the shape was grabbed so it doesn't jump to the cursor
+        grabOffsetX = shape * 200 - mouseX;
+        grabOffsetY = 200 - mouseY;
+      }
+      if (shape === 1) {
             draggingStar = true;
-          } else if (dist(400, 200, mouseX, mouseY) < 50) {
+          } else if (shape === 2) {
             draggingDia = true;
-          } else if (dist(600, 200, mouseX, mouseY) < 50) {
+          } else if (shape === 3) {
             draggingTri = true;
           }
     }
   }
 
-  function mouseReleased() {
+  //which resting shape the mouse is over: 1 star, 2 diamond, 3 triangle, 0 none
+  function overShape() {
+    for (let i = 1; i <= 3; i++) {
+      if (dist(i * 200, 200, mouseX, mouseY) < 50) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  function overAdvance() {
+    return dist(745, 40, mouseX, mouseY) < 30;
+  }
+
+  function overCanvas() {
+    return mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height;
+  }
+
+  //browsers start audio suspended until the page is interacted with
+  function startAudio() {
+    if (getAudioContext().state !== 'running') {
+      getAudioContext().resume();
+    }
+  }
+
+  function pointerReleased() {
     if (!night) {
       if (draggingStar && dist(400, 500, mouseX, mouseY) < 100) {
             paidSound.play();
@@ -199,26 +276,30 @@ function setup() {
             deductionSound.play();
             pay = pay - 1.0;
             draggingStar = draggingDia = draggingTri = false;
-          } else if (dist(745, 40, mouseX, mouseY) < 30){
+          } else if (overAdvance()){
             night = true;
           }
     } else {
       //Night mode
-      if (dist(745, 40, mouseX, mouseY) < 30) {
+      if (overAdvance()) {
         night = false;
         body.class('');
       }
     }
   }
 
-  function keyReleased() {
-    if (night) {
-      if (willFire) {
-        fireSound.play();
-        fire();
-        firedFrame = frameCount;
-        willFire = false;
-      }
+  function keyPressed() {
+    startAudio();
+    //any key other than movement (or a modifier) fires. Handling this here instead
+    //of polling keyIsPressed in draw() means quick taps between frames still count.
+    let movement = [UP_ARROW, DOWN_ARROW, 87, 83];
+    let modifiers = [SHIFT, CONTROL, ALT, 91, 92, 93, 224];
+    if (night && !movement.includes(keyCode) && !modifiers.includes(keyCode)
+        && !keyIsDown(CONTROL) && !keyIsDown(91) && !keyIsDown(93) && !keyIsDown(224)) {
+      hasFired = true;
+      fireSound.play();
+      fire();
+      firedFrame = frameCount;
     }
   }
 
